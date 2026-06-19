@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, X, Loader2, FileQuestion } from "lucide-react";
+import { Download, Loader2, FileQuestion } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { kindOf, formatSize, type FileRow } from "@/lib/file-utils";
 
@@ -63,10 +63,9 @@ export function FilePreview({ file, onOpenChange }: Props) {
   return (
     <Dialog open={!!file} onOpenChange={onOpenChange}>
       <DialogContent
-        showCloseButton={false}
         className="glass-strong max-w-6xl w-[95vw] h-[90vh] p-0 gap-0 border-white/10 overflow-hidden flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 pr-14">
           <div className="min-w-0 flex-1">
             <DialogTitle className="truncate text-base font-medium font-display">
               {file?.name}
@@ -82,14 +81,6 @@ export function FilePreview({ file, onOpenChange }: Props) {
               className="bg-gradient-primary text-primary-foreground border-0 shadow-glow hover:opacity-90"
             >
               <Download className="h-4 w-4 mr-2" /> Download
-            </Button>
-            <Button
-              onClick={() => onOpenChange(false)}
-              size="icon"
-              variant="ghost"
-              className="rounded-full"
-            >
-              <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
