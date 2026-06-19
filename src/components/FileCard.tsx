@@ -11,7 +11,6 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -25,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { kindOf, formatSize, formatDate, type FileRow } from "@/lib/file-utils";
+import { getObjectURL } from "@/lib/file-store";
 
 type Props = {
   file: FileRow;
@@ -65,29 +65,32 @@ export function FileCard({ file, onPreview, onDelete, index }: Props) {
   useEffect(() => {
     if (kind !== "image") return;
     let cancelled = false;
-    supabase.storage
-      .from("files")
-      .createSignedUrl(file.storage_path, 60 * 60)
-      .then(({ data }) => {
-        if (!cancelled) setThumb(data?.signedUrl ?? null);
-      });
+    let url: string | null = null;
+    getObjectURL(file.id).then((u) => {
+      if (cancelled) {
+        if (u) URL.revokeObjectURL(u);
+        return;
+      }
+      url = u;
+      setThumb(u);
+    });
     return () => {
       cancelled = true;
+      if (url) URL.revokeObjectURL(url);
     };
-  }, [file.storage_path, kind]);
+  }, [file.id, kind]);
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const { data } = await supabase.storage
-      .from("files")
-      .createSignedUrl(file.storage_path, 60 * 60, { download: file.name });
-    if (!data?.signedUrl) return;
+    const url = await getObjectURL(file.id);
+    if (!url) return;
     const a = document.createElement("a");
-    a.href = data.signedUrl;
+    a.href = url;
     a.download = file.name;
     document.body.appendChild(a);
     a.click();
     a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
@@ -154,7 +157,7 @@ export function FileCard({ file, onPreview, onDelete, index }: Props) {
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete this file?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  "{file.name}" will be permanently removed. This cannot be undone.
+                  "{file.name}" will be permanently removed from your browser. This cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
