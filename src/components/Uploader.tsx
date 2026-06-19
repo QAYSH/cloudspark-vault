@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { UploadCloud, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { addFile } from "@/lib/file-store";
 
 type Props = {
   onUploaded: () => void;
@@ -23,47 +23,22 @@ export function Uploader({ onUploaded }: Props) {
 
       for (const file of files) {
         setProgress({ name: file.name, done, total });
-        const ext = file.name.includes(".") ? file.name.split(".").pop() : "";
-        const safeName = file.name.replace(/[^\w.\- ]+/g, "_");
-        const path = `${crypto.randomUUID()}${ext ? "." + ext : ""}-${safeName}`;
-
-        const { error: upErr } = await supabase.storage
-          .from("files")
-          .upload(path, file, {
-            cacheControl: "3600",
-            contentType: file.type || "application/octet-stream",
-            upsert: false,
+        try {
+          await addFile(file);
+          done += 1;
+          setProgress({ name: file.name, done, total });
+        } catch (err) {
+          toast.error(`Upload failed: ${file.name}`, {
+            description: err instanceof Error ? err.message : "Unknown error",
           });
-
-        if (upErr) {
-          toast.error(`Upload failed: ${file.name}`, { description: upErr.message });
-          continue;
         }
-
-        const { error: dbErr } = await supabase.from("files").insert({
-          name: file.name,
-          storage_path: path,
-          mime_type: file.type || "application/octet-stream",
-          size: file.size,
-        });
-
-        if (dbErr) {
-          toast.error(`Could not save metadata for ${file.name}`, {
-            description: dbErr.message,
-          });
-          await supabase.storage.from("files").remove([path]);
-          continue;
-        }
-
-        done += 1;
-        setProgress({ name: file.name, done, total });
       }
 
       setProgress(null);
       toast.success(
         done === total
-          ? `Uploaded ${done} ${done === 1 ? "file" : "files"}`
-          : `Uploaded ${done} of ${total}`,
+          ? `Saved ${done} ${done === 1 ? "file" : "files"} to your browser`
+          : `Saved ${done} of ${total}`,
       );
       onUploaded();
     },
@@ -106,7 +81,7 @@ export function Uploader({ onUploaded }: Props) {
         <h3 className="mt-5 font-display text-xl md:text-2xl font-semibold">
           {progress ? (
             <>
-              Uploading{" "}
+              Saving{" "}
               <span className="text-gradient">
                 {progress.done + 1} / {progress.total}
               </span>
@@ -121,7 +96,7 @@ export function Uploader({ onUploaded }: Props) {
         <p className="mt-2 text-sm text-muted-foreground">
           {progress
             ? `${progress.name}`
-            : "PDFs, images, video, audio, documents — any file type, up to 50 MB each."}
+            : "PDFs, images, video, audio, documents — stored privately in your browser."}
         </p>
       </div>
       <input

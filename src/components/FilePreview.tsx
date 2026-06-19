@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, FileQuestion } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { kindOf, formatSize, type FileRow } from "@/lib/file-utils";
+import { getBlob } from "@/lib/file-store";
 
 type Props = {
   file: FileRow | null;
@@ -22,20 +22,21 @@ export function FilePreview({ file, onOpenChange }: Props) {
       return;
     }
     let cancelled = false;
+    let createdUrl: string | null = null;
     setLoading(true);
     setTextContent(null);
     (async () => {
-      const { data } = await supabase.storage
-        .from("files")
-        .createSignedUrl(file.storage_path, 60 * 60);
-      if (cancelled) return;
-      const signed = data?.signedUrl ?? null;
-      setUrl(signed);
+      const blob = await getBlob(file.id);
+      if (cancelled || !blob) {
+        setLoading(false);
+        return;
+      }
+      createdUrl = URL.createObjectURL(blob);
+      setUrl(createdUrl);
 
-      if (signed && kindOf(file) === "text") {
+      if (kindOf(file) === "text" || kindOf(file) === "code") {
         try {
-          const res = await fetch(signed);
-          const txt = await res.text();
+          const txt = await blob.text();
           if (!cancelled) setTextContent(txt.slice(0, 200_000));
         } catch {
           /* ignore */
@@ -45,6 +46,7 @@ export function FilePreview({ file, onOpenChange }: Props) {
     })();
     return () => {
       cancelled = true;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
   }, [file]);
 
@@ -154,23 +156,15 @@ function PreviewBody({
       </pre>
     );
   }
-  if (kind === "office") {
-    const viewer = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
-    return (
-      <iframe
-        src={viewer}
-        className="w-full h-full bg-white"
-        title={file.name}
-      />
-    );
-  }
   return (
     <div className="w-full h-full grid place-items-center p-10 text-center">
       <div className="max-w-sm">
         <FileQuestion className="h-14 w-14 mx-auto text-muted-foreground mb-4" />
         <p className="text-foreground font-medium">No inline preview</p>
         <p className="text-sm text-muted-foreground mt-1">
-          This file type can't be previewed in the browser, but you can still download it.
+          {kind === "office"
+            ? "Office documents can't be previewed offline — download to open in your app."
+            : "This file type can't be previewed in the browser, but you can still download it."}
         </p>
       </div>
     </div>

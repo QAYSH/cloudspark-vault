@@ -2,12 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Search, Sparkles, FolderOpen, Files } from "lucide-react";
 import { Toaster, toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Uploader } from "@/components/Uploader";
 import { FileCard } from "@/components/FileCard";
 import { FilePreview } from "@/components/FilePreview";
 import { Input } from "@/components/ui/input";
 import { formatSize, type FileRow } from "@/lib/file-utils";
+import { listFiles, deleteFile } from "@/lib/file-store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,11 +15,12 @@ export const Route = createFileRoute("/")({
       { title: "Vault — Premium File Library" },
       {
         name: "description",
-        content: "Upload, preview and manage PDFs, images, video, audio and documents in a beautifully crafted cloud vault.",
+        content: "Upload, preview and manage PDFs, images, video, audio and documents — stored privately in your browser.",
       },
     ],
   }),
   component: Index,
+  ssr: false,
 });
 
 function Index() {
@@ -29,14 +30,13 @@ function Index() {
   const [preview, setPreview] = useState<FileRow | null>(null);
 
   const load = async () => {
-    const { data, error } = await supabase
-      .from("files")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      toast.error("Could not load library", { description: error.message });
-    } else {
-      setFiles((data ?? []) as FileRow[]);
+    try {
+      const rows = await listFiles();
+      setFiles(rows);
+    } catch (err) {
+      toast.error("Could not load library", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      });
     }
     setLoading(false);
   };
@@ -59,18 +59,15 @@ function Index() {
   const handleDelete = async (file: FileRow) => {
     const prev = files;
     setFiles((f) => f.filter((x) => x.id !== file.id));
-    const { error: stErr } = await supabase.storage
-      .from("files")
-      .remove([file.storage_path]);
-    const { error: dbErr } = await supabase.from("files").delete().eq("id", file.id);
-    if (stErr || dbErr) {
+    try {
+      await deleteFile(file.id);
+      toast.success(`Deleted "${file.name}"`);
+    } catch (err) {
       toast.error("Could not delete file", {
-        description: (stErr || dbErr)?.message,
+        description: err instanceof Error ? err.message : "Unknown error",
       });
       setFiles(prev);
-      return;
     }
-    toast.success(`Deleted "${file.name}"`);
   };
 
   return (
@@ -128,7 +125,7 @@ function Index() {
           <div className="text-center max-w-2xl mx-auto animate-fade-up">
             <span className="inline-flex items-center gap-2 glass px-3 py-1 rounded-full text-xs text-muted-foreground mb-5">
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-              Always available · End-to-cloud
+              100% local · Stored in your browser
             </span>
             <h2 className="font-display text-4xl md:text-6xl font-semibold leading-[1.05] tracking-tight">
               Your files,{" "}
@@ -209,7 +206,7 @@ function Index() {
         </section>
 
         <footer className="max-w-6xl mx-auto mt-24 pb-6 text-center text-xs text-muted-foreground">
-          Crafted with care · Powered by Lovable Cloud
+          Crafted with care · Files stored locally via IndexedDB
         </footer>
       </main>
 
