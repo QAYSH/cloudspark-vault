@@ -84,6 +84,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Upload, preview and manage your files in a beautifully crafted cloud vault." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Vault — Premium File Library" },
+      { name: "twitter:description", content: "Upload, preview and manage your files in a beautifully crafted cloud vault." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/db1510a7-5aef-4993-b1b6-6f621889d4fb" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/db1510a7-5aef-4993-b1b6-6f621889d4fb" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
